@@ -86,6 +86,8 @@ void complex_cut(stl_vertex zero, stl_vertex one, stl_vertex two, stl_facet face
   first.push_back(semifacet(facet, zero, one_middle, two_middle));
   second.push_back(semifacet(facet, one_middle, one, two));
   second.push_back(semifacet(facet, one_middle, two, two_middle));
+  border.push_back(one_middle);
+  border.push_back(two_middle);
 }
 
 void separate(stl_facet facet, stl_plane plane,
