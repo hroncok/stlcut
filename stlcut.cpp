@@ -109,7 +109,7 @@ void separate(stl_facet facet, stl_plane plane,
     return;
   }
   
-  // All vertexes are bellow the plane
+  // All vertexes are below the plane
   if (belows == 3) {
     lower.push_back(facet);
     return;
