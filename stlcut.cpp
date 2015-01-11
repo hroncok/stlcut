@@ -17,7 +17,6 @@
  */
 #include <iostream>
 #include <deque>
-#include <set>
 #include <math.h>
 #include <admesh/stl.h>
 #define TOLERANCE 0.000001
