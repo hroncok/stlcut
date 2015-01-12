@@ -17,6 +17,7 @@
  */
 #include <iostream>
 #include <deque>
+#include <set>
 #include <math.h>
 #include <admesh/stl.h>
 #define TOLERANCE 0.000001
@@ -58,6 +59,28 @@ struct stl_plane {
   }
 };
 
+struct stl_vertex_pair {
+  stl_vertex x;
+  stl_vertex y;
+  stl_vertex_pair(stl_vertex x, stl_vertex y) {
+    this->x=x;
+    this->y=y;
+  }
+  bool operator<(const stl_vertex_pair& other) const  {
+    if (x.x == other.x.x) {
+      if (x.y == other.x.y) {
+        if (x.z == other.x.z) {
+          if (y.x == other.y.x) {
+            if (y.y == other.y.y) {
+              return y.z < other.y.z;
+            } else return y.y < other.y.y;
+          } else return y.x < other.y.x;
+        } else return x.z < other.x.z;
+      } else return x.y < other.x.y;
+    } else return x.x < other.x.x;
+  }
+};
+
 stl_facet semifacet(stl_facet original, stl_vertex a, stl_vertex b, stl_vertex c) {
   stl_facet f;
   f.vertex[0] = a;
@@ -71,28 +94,27 @@ stl_facet semifacet(stl_facet original, stl_vertex a, stl_vertex b, stl_vertex c
 
 void simple_cut(stl_vertex zero, stl_vertex one, stl_vertex two, stl_facet facet, stl_plane plane,
               std::deque<stl_facet> &first, std::deque<stl_facet> &second,
-              std::deque<stl_vertex> &border) {
+              std::set<stl_vertex_pair> &border) {
   stl_vertex middle = plane.intersection(one, two);
   first.push_back(semifacet(facet, middle, zero, one));
   second.push_back(semifacet(facet, middle, two, zero));
-  border.push_back(middle);
+  border.insert(stl_vertex_pair(one,middle));
 }
 
 void complex_cut(stl_vertex zero, stl_vertex one, stl_vertex two, stl_facet facet, stl_plane plane,
               std::deque<stl_facet> &first, std::deque<stl_facet> &second,
-              std::deque<stl_vertex> &border) {
+              std::set<stl_vertex_pair> &border) {
   stl_vertex one_middle = plane.intersection(zero, one);
   stl_vertex two_middle = plane.intersection(zero, two);
   first.push_back(semifacet(facet, zero, one_middle, two_middle));
   second.push_back(semifacet(facet, one_middle, one, two));
   second.push_back(semifacet(facet, one_middle, two, two_middle));
-  border.push_back(one_middle);
-  border.push_back(two_middle);
+  border.insert(stl_vertex_pair(one_middle,two_middle));
 }
 
 void separate(stl_facet facet, stl_plane plane,
               std::deque<stl_facet> &upper, std::deque<stl_facet> &lower,
-              std::deque<stl_vertex> &border) {
+              std::set<stl_vertex_pair> &border) {
   stl_position pos[3];
   size_t aboves = 0;
   size_t belows = 0;
@@ -118,23 +140,19 @@ void separate(stl_facet facet, stl_plane plane,
   }
   
   // All vertexes are on the plane
-  if (ons == 3) {
-    border.push_back(facet.vertex[0]);
-    border.push_back(facet.vertex[1]);
-    border.push_back(facet.vertex[2]);
-    return;
-  }
+  if (ons == 3) return;
   
   // 2 vertexes are on the plane
   if (ons == 2) {
     std::cout << "o2" << std::endl;
     for (size_t i = 0; i < 3; i++) {
-      if (pos[i] == above)
+      if (pos[i] == above) {
         upper.push_back(facet);
-      else if (pos[i] == below)
+        border.insert(stl_vertex_pair(facet.vertex[(i+1)%3],facet.vertex[(i+2)%3]));
+      } else if (pos[i] == below) {
         lower.push_back(facet);
-      else
-        border.push_back(facet.vertex[i]);
+        border.insert(stl_vertex_pair(facet.vertex[(i+2)%3],facet.vertex[(i+1)%3]));
+      }
     }
     return;
   }
@@ -145,7 +163,6 @@ void separate(stl_facet facet, stl_plane plane,
     stl_position onepos;
     for (size_t i = 0; i < 3; i++) {
       if (pos[i] == on) {
-        border.push_back(facet.vertex[i]);
         zero = facet.vertex[i];
         one = facet.vertex[(i+1)%3];
         onepos = pos[(i+1)%3];
@@ -218,8 +235,8 @@ int main(int argc, char **argv) {
   stl_open(&stl_in, argv[1]);
   stl_exit_on_error(&stl_in);
   
+  std::set<stl_vertex_pair> border;
   std::deque<stl_facet> upper, lower;
-  std::deque<stl_vertex> border;
   
   for (int i = 0; i < stl_in.stats.number_of_facets; i++)
     separate(stl_in.facet_start[i], stl_plane(0,0,1,0), upper, lower, border);
