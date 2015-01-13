@@ -287,8 +287,8 @@ void export_stl(std::deque<stl_facet> facets, const char* name) {
   stl_close(&stl_out);
 }
 
-bool is_same(stl_vertex a, stl_vertex b) {
-  return (ABS(a.x-b.x)<0.00001 && ABS(a.y-b.y)<0.00001);
+bool is_same(stl_vertex a, stl_vertex b, float tolerance) {
+  return (ABS(a.x-b.x)<tolerance && ABS(a.y-b.y)<tolerance);
 }
 
 int main(int argc, char **argv) {
@@ -312,11 +312,18 @@ int main(int argc, char **argv) {
   std::deque<stl_vertex_pair> border2d;
   
   stl_vertex origin = (*border.begin()).x;
+  float tolerance;
   for (std::set<stl_vertex_pair>::iterator i = border.begin(); i != border.end(); i++) {
     stl_vertex x = plane.to_2D((*i).x, origin);
     stl_vertex y = plane.to_2D((*i).y, origin);
     border2d.push_back(stl_vertex_pair(x,y));
+    if (i == border.begin()) {
+      tolerance = ABS(x.x-y.x)+ABS(x.y-y.y);
+    } else {
+      tolerance = STL_MIN(tolerance,ABS(x.x-y.x)+ABS(x.y-y.y));
+    }
   }
+  tolerance /= 4;
   
   std::deque<stl_vertex> polyline;
   stl_vertex_pair pair = border2d.front();
@@ -324,16 +331,17 @@ int main(int argc, char **argv) {
   polyline.push_back(pair.x);
   polyline.push_back(pair.y);
   bool found = true;
+    
   while (found) {
     found = false;
     for (std::deque<stl_vertex_pair>::iterator i = border2d.begin(); i != border2d.end(); i++) {
-      if (is_same(polyline.back(), (*i).x)) {
+      if (is_same(polyline.back(), (*i).x, tolerance)) {
         polyline.push_back((*i).y);
         border2d.erase(i);
         found = true;
         break;
       }
-      if (is_same(polyline.back(), (*i).y)) {
+      if (is_same(polyline.back(), (*i).y, tolerance)) {
         polyline.push_back((*i).x);
         border2d.erase(i);
         found = true;
@@ -345,7 +353,7 @@ int main(int argc, char **argv) {
     }
   }
   
-  if (is_same(polyline.back(), polyline.front())) {
+  if (is_same(polyline.back(), polyline.front(), tolerance)) {
     polyline.pop_back();
   }
   
