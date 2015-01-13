@@ -18,22 +18,58 @@
 #include <iostream>
 #include <deque>
 #include <set>
+#include <math.h>
 #include <admesh/stl.h>
 #define TOLERANCE 0.000001
 
 enum stl_position { above, on, below };
+
+stl_vertex normalize(stl_vertex in) {
+  double size = sqrt((double)in.x*in.x+(double)in.y*in.y+(double)in.z*in.z);
+  in.x = in.x/size;
+  in.y = in.y/size;
+  in.z = in.z/size;
+  return in;
+}
+
+float scalar(stl_vertex a, stl_vertex b) {
+  return a.x*b.x + a.y*b.y + a.z*b.z;
+}
 
 struct stl_plane {
   float x;
   float y;
   float z;
   float d;
+  stl_vertex a;
+  stl_vertex b;
   
   stl_plane(float x, float y, float z, float d) {
     this->x = x;
     this->y = y;
     this->z = z;
     this->d = d;
+    
+    if (x == 0 && y == 0) {
+      a.x = 1; a.y = 0; a.z = 0;
+      b.x = 0; b.y = 1; b.z = 0;
+    } else if (y == 0 && z == 0) {
+      a.x = 0; a.y = 1; a.z = 0;
+      b.x = 0; b.y = 0; b.z = 1;
+    } else if (x == 0 && z == 0) {
+      a.x = 1; a.y = 0; a.z = 0;
+      b.x = 0; b.y = 0; b.z = 1;
+    } else {
+      a.x = y; a.y = -x; a.z = 0;
+      a = normalize(a);
+      b.x = 0; b.y = z; b.z = -y;
+      
+      float r = scalar(a,b);
+      b.x -= a.x*r;
+      b.y -= a.y*r;
+      b.z -= a.z*r;
+      b = normalize(b);
+    }
   }
   
   stl_position position(stl_vertex vertex, float tolerance = TOLERANCE) {
@@ -54,6 +90,28 @@ struct stl_plane {
     result.x = a.x + ab.x*t;
     result.y = a.y + ab.y*t;
     result.z = a.z + ab.z*t;
+    return result;
+  }
+  
+  stl_vertex to_2D(stl_vertex vertex, stl_vertex origin) {
+    stl_vertex ov;
+    ov.x = vertex.x-origin.x;
+    ov.y = vertex.y-origin.y;
+    ov.z = vertex.z-origin.z;
+    
+    stl_vertex result;
+    result.x = scalar(a,ov);
+    result.y = scalar(b,ov);
+    result.z = 0;
+    return result;
+  }
+  
+  stl_vertex to_3D(stl_vertex vertex, stl_vertex origin) {
+    stl_vertex result;
+    
+    result.x = origin.x + a.x*vertex.x + b.x*vertex.y;
+    result.y = origin.y + a.y*vertex.x + b.y*vertex.y;
+    result.z = origin.z + a.z*vertex.x + b.z*vertex.y;
     return result;
   }
 };
