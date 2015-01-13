@@ -143,7 +143,6 @@ void separate(stl_facet facet, stl_plane plane,
   
   // 2 vertexes are on the plane
   if (ons == 2) {
-    std::cout << "o2" << std::endl;
     for (size_t i = 0; i < 3; i++) {
       if (pos[i] == above) {
         upper.push_back(facet);
