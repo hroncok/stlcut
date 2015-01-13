@@ -18,7 +18,6 @@
 #include <iostream>
 #include <deque>
 #include <set>
-#include <math.h>
 #include <admesh/stl.h>
 #define TOLERANCE 0.000001
 
@@ -39,7 +38,7 @@ struct stl_plane {
   
   stl_position position(stl_vertex vertex, float tolerance = TOLERANCE) {
     float result = x*vertex.x + y*vertex.y + z*vertex.z + d;
-    if (fabs(result) <= tolerance) return on;
+    if (ABS(result) <= tolerance) return on;
     if (result > 0) return above;
     return below;
   }
