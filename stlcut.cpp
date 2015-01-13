@@ -278,6 +278,10 @@ void export_stl(std::deque<stl_facet> facets, const char* name) {
     first = 0;
   }
   
+  // check nearby in 2 iterations
+  // remove unconnected facets
+  // fill holes
+  stl_repair(&stl_out, 0, 0, 0, 0, 0, 0, 1, 2, 1, 1, 0, 0, 0, 0);
   stl_write_ascii(&stl_out, name, "stlcut");
   stl_clear_error(&stl_out);
   stl_close(&stl_out);
