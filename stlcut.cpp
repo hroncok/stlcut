@@ -17,10 +17,10 @@
  */
 #include <iostream>
 #include <deque>
+#include <vector>
 #include <set>
 #include <math.h>
 #include <admesh/stl.h>
-#define TOLERANCE 0.000001
 
 enum stl_position { above, on, below };
 
@@ -72,11 +72,11 @@ struct stl_plane {
     }
   }
   
-  stl_position position(stl_vertex vertex, float tolerance = TOLERANCE) {
-    float result = x*vertex.x + y*vertex.y + z*vertex.z + d;
-    if (ABS(result) <= tolerance) return on;
+  stl_position position(stl_vertex vertex) {
+    double result = (double)x*vertex.x + (double)y*vertex.y + (double)z*vertex.z + d;
     if (result > 0) return above;
-    return below;
+    if (result < 0) return below;
+    return on;
   }
   
   stl_vertex intersection(stl_vertex a, stl_vertex b) {
@@ -290,14 +290,31 @@ int main(int argc, char **argv) {
   stl_file stl_in;
   stl_open(&stl_in, argv[1]);
   stl_exit_on_error(&stl_in);
+  stl_plane plane = stl_plane(0,0,1,0);
   
   std::set<stl_vertex_pair> border;
   std::deque<stl_facet> upper, lower;
   
   for (int i = 0; i < stl_in.stats.number_of_facets; i++)
-    separate(stl_in.facet_start[i], stl_plane(0,0,1,0), upper, lower, border);
+    separate(stl_in.facet_start[i], plane, upper, lower, border);
   
   stl_close(&stl_in);
+  
+  std::deque<stl_vertex_pair> border2d;
+  
+  stl_vertex origin = (*border.begin()).x;
+  for (std::set<stl_vertex_pair>::iterator i = border.begin(); i != border.end(); i++) {
+    stl_vertex x = plane.to_2D((*i).x, origin);
+    //std::cout << x.x << " " << x.y << " <> ";
+    stl_vertex y = plane.to_2D((*i).y, origin);
+    //std::cout << y.x << " " << y.y << " " << std::endl;
+    border2d.push_back(stl_vertex_pair(x,y));
+  }
+  
+  std::vector<stl_vertex> polyline;
+  for (std::deque<stl_vertex_pair>::iterator i = border2d.begin(); i != border2d.end(); i++) {
+    break;
+  }
   
   export_stl(upper, "upper.stl");
   export_stl(lower, "lower.stl");
