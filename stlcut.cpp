@@ -21,6 +21,7 @@
 #include <set>
 #include <math.h>
 #include <admesh/stl.h>
+#include <poly2tri/poly2tri.h>
 
 enum stl_position { above, on, below };
 
@@ -282,6 +283,10 @@ void export_stl(std::deque<stl_facet> facets, const char* name) {
   stl_close(&stl_out);
 }
 
+bool is_same(stl_vertex a, stl_vertex b) {
+  return (ABS(a.x-b.x)<0.00001 && ABS(a.y-b.y)<0.00001);
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     std::cerr << "Usage: " << argv[0] << " file.stl" << std::endl;
@@ -305,15 +310,74 @@ int main(int argc, char **argv) {
   stl_vertex origin = (*border.begin()).x;
   for (std::set<stl_vertex_pair>::iterator i = border.begin(); i != border.end(); i++) {
     stl_vertex x = plane.to_2D((*i).x, origin);
-    //std::cout << x.x << " " << x.y << " <> ";
     stl_vertex y = plane.to_2D((*i).y, origin);
-    //std::cout << y.x << " " << y.y << " " << std::endl;
     border2d.push_back(stl_vertex_pair(x,y));
   }
   
-  std::vector<stl_vertex> polyline;
-  for (std::deque<stl_vertex_pair>::iterator i = border2d.begin(); i != border2d.end(); i++) {
-    break;
+  std::deque<stl_vertex> polyline;
+  stl_vertex_pair pair = border2d.front();
+  border2d.pop_front();
+  polyline.push_back(pair.x);
+  polyline.push_back(pair.y);
+  bool found = true;
+  while (found) {
+    found = false;
+    for (std::deque<stl_vertex_pair>::iterator i = border2d.begin(); i != border2d.end(); i++) {
+      if (is_same(polyline.back(), (*i).x)) {
+        polyline.push_back((*i).y);
+        border2d.erase(i);
+        found = true;
+        break;
+      }
+      if (is_same(polyline.back(), (*i).y)) {
+        polyline.push_back((*i).x);
+        border2d.erase(i);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      break;
+    }
+  }
+  
+  if (is_same(polyline.back(), polyline.front())) {
+    polyline.pop_back();
+  }
+  
+  std::vector<p2t::Point*> polygon;
+  for (std::deque<stl_vertex>::iterator i = polyline.begin(); i != polyline.end(); i++) {
+    polygon.push_back(new p2t::Point((*i).x,(*i).y));
+  }
+  
+  p2t::CDT cdt = p2t::CDT(polygon);
+  cdt.Triangulate();
+  std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
+  
+  for (std::vector<p2t::Triangle*>::iterator i = triangles.begin(); i != triangles.end(); i++) {
+    stl_vertex vertex;
+    stl_facet facet;
+    for (size_t j = 0; j < 3; j++) {
+      p2t::Point* p = (*i)->GetPoint(j);
+      vertex.x = p->x;
+      vertex.y = p->y;
+      vertex = plane.to_3D(vertex, origin);
+      facet.vertex[j].x = vertex.x;
+      facet.vertex[j].y = vertex.y;
+      facet.vertex[j].z = vertex.z;
+    }
+    facet.normal.x = plane.x;
+    facet.normal.y = plane.y;
+    facet.normal.z = plane.z;
+    lower.push_back(facet);
+    
+    facet.normal.x = -plane.x;
+    facet.normal.y = -plane.y;
+    facet.normal.z = -plane.z;
+    vertex = facet.vertex[1];
+    facet.vertex[1] = facet.vertex[2];
+    facet.vertex[2] = vertex;
+    upper.push_back(facet);
   }
   
   export_stl(upper, "upper.stl");
