@@ -26,8 +26,11 @@
 // vertex position related to the plane
 enum stl_position { above, on, below };
 
+// for better readability
+typedef stl_vertex stl_vector;
+
 // normalize given vector
-stl_vertex normalize(stl_vertex in) {
+stl_vector normalize(stl_vector in) {
   double size = sqrt((double)in.x*in.x+(double)in.y*in.y+(double)in.z*in.z);
   in.x = in.x/size;
   in.y = in.y/size;
@@ -36,7 +39,7 @@ stl_vertex normalize(stl_vertex in) {
 }
 
 // dot product of 2 vectors
-float dot(stl_vertex a, stl_vertex b) {
+float dot(stl_vector a, stl_vector b) {
   return a.x*b.x + a.y*b.y + a.z*b.z;
 }
 
@@ -46,8 +49,8 @@ struct stl_plane {
   float y;
   float z;
   float d;
-  stl_vertex a;
-  stl_vertex b;
+  stl_vector a;
+  stl_vector b;
   
   stl_plane(float x, float y, float z, float d) {
     this->x = x;
@@ -88,7 +91,7 @@ struct stl_plane {
   
   // given two vertices, return the intersection point of line they form with the plane
   stl_vertex intersection(stl_vertex a, stl_vertex b) {
-    stl_vertex ab; // vector from A to B
+    stl_vector ab; // vector from A to B
     ab.x = b.x-a.x;
     ab.y = b.y-a.y;
     ab.z = b.z-a.z;
@@ -103,7 +106,7 @@ struct stl_plane {
   
   // transform 3D coordinates to 2D (on the plane)
   stl_vertex to_2D(stl_vertex vertex, stl_vertex origin) {
-    stl_vertex ov;
+    stl_vector ov;
     ov.x = vertex.x-origin.x;
     ov.y = vertex.y-origin.y;
     ov.z = vertex.z-origin.z;
