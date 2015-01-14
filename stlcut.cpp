@@ -23,8 +23,10 @@
 #include <admesh/stl.h>
 #include <poly2tri/poly2tri.h>
 
+// vertex position related to the plane
 enum stl_position { above, on, below };
 
+// normalize given vector
 stl_vertex normalize(stl_vertex in) {
   double size = sqrt((double)in.x*in.x+(double)in.y*in.y+(double)in.z*in.z);
   in.x = in.x/size;
@@ -33,10 +35,12 @@ stl_vertex normalize(stl_vertex in) {
   return in;
 }
 
-float scalar(stl_vertex a, stl_vertex b) {
+// dot product of 2 vectors
+float dot(stl_vertex a, stl_vertex b) {
   return a.x*b.x + a.y*b.y + a.z*b.z;
 }
 
+// plane in the form of equation
 struct stl_plane {
   float x;
   float y;
@@ -51,6 +55,7 @@ struct stl_plane {
     this->z = z;
     this->d = d;
     
+    // save orthonormal basis
     if (x == 0 && y == 0) {
       a.x = 1; a.y = 0; a.z = 0;
       b.x = 0; b.y = 1; b.z = 0;
@@ -65,7 +70,7 @@ struct stl_plane {
       a = normalize(a);
       b.x = 0; b.y = z; b.z = -y;
       
-      float r = scalar(a,b);
+      float r = dot(a,b);
       b.x -= a.x*r;
       b.y -= a.y*r;
       b.z -= a.z*r;
@@ -73,6 +78,7 @@ struct stl_plane {
     }
   }
   
+  // returns the position of the vertex related to the plane
   stl_position position(stl_vertex vertex) {
     double result = (double)x*vertex.x + (double)y*vertex.y + (double)z*vertex.z + d;
     if (result > 0) return above;
@@ -80,6 +86,7 @@ struct stl_plane {
     return on;
   }
   
+  // given two vertices, return the intersection point of line they form with the plane
   stl_vertex intersection(stl_vertex a, stl_vertex b) {
     stl_vertex ab; // vector from A to B
     ab.x = b.x-a.x;
@@ -94,6 +101,7 @@ struct stl_plane {
     return result;
   }
   
+  // transform 3D coordinates to 2D (on the plane)
   stl_vertex to_2D(stl_vertex vertex, stl_vertex origin) {
     stl_vertex ov;
     ov.x = vertex.x-origin.x;
@@ -101,12 +109,13 @@ struct stl_plane {
     ov.z = vertex.z-origin.z;
     
     stl_vertex result;
-    result.x = scalar(a,ov);
-    result.y = scalar(b,ov);
+    result.x = dot(a,ov);
+    result.y = dot(b,ov);
     result.z = 0;
     return result;
   }
   
+  // transform 2D coordinates on the plane to 3D
   stl_vertex to_3D(stl_vertex vertex, stl_vertex origin) {
     stl_vertex result;
     
@@ -117,6 +126,7 @@ struct stl_plane {
   }
 };
 
+// pair of vertices, edge of the hole we cut
 struct stl_vertex_pair {
   stl_vertex x;
   stl_vertex y;
@@ -124,6 +134,8 @@ struct stl_vertex_pair {
     this->x=x;
     this->y=y;
   }
+  
+  // this is needed by set
   bool operator<(const stl_vertex_pair& other) const  {
     if (x.x == other.x.x) {
       if (x.y == other.x.y) {
@@ -139,6 +151,7 @@ struct stl_vertex_pair {
   }
 };
 
+// crate a partial facet of a given facet
 stl_facet semifacet(stl_facet original, stl_vertex a, stl_vertex b, stl_vertex c) {
   stl_facet f;
   f.vertex[0] = a;
@@ -150,6 +163,7 @@ stl_facet semifacet(stl_facet original, stl_vertex a, stl_vertex b, stl_vertex c
   return f;
 }
 
+// one of the vertices is on the plane and we cut the facet to two
 void simple_cut(stl_vertex zero, stl_vertex one, stl_vertex two, stl_facet facet, stl_plane plane,
               std::deque<stl_facet> &first, std::deque<stl_facet> &second,
               std::set<stl_vertex_pair> &border) {
@@ -159,6 +173,7 @@ void simple_cut(stl_vertex zero, stl_vertex one, stl_vertex two, stl_facet facet
   border.insert(stl_vertex_pair(one,middle));
 }
 
+// no vertex is on the plane and we cut the facet to three
 void complex_cut(stl_vertex zero, stl_vertex one, stl_vertex two, stl_facet facet, stl_plane plane,
               std::deque<stl_facet> &first, std::deque<stl_facet> &second,
               std::set<stl_vertex_pair> &border) {
@@ -170,6 +185,9 @@ void complex_cut(stl_vertex zero, stl_vertex one, stl_vertex two, stl_facet face
   border.insert(stl_vertex_pair(one_middle,two_middle));
 }
 
+// given facet is classified and distributed to upper or lower deque
+// is cut to smaller ones when necessary
+// border edges ends in border set for further triangulation
 void separate(stl_facet facet, stl_plane plane,
               std::deque<stl_facet> &upper, std::deque<stl_facet> &lower,
               std::set<stl_vertex_pair> &border) {
@@ -260,6 +278,7 @@ void separate(stl_facet facet, stl_plane plane,
   }
 }
 
+// exports stl file form given deque
 void export_stl(std::deque<stl_facet> facets, const char* name) {
   stl_file stl_out;
   stl_out.stats.type = inmemory;
@@ -287,6 +306,7 @@ void export_stl(std::deque<stl_facet> facets, const char* name) {
   stl_close(&stl_out);
 }
 
+// vertex comparison with tolerance
 bool is_same(stl_vertex a, stl_vertex b, float tolerance) {
   return (ABS(a.x-b.x)<tolerance && ABS(a.y-b.y)<tolerance);
 }
@@ -296,6 +316,9 @@ int main(int argc, char **argv) {
     std::cerr << "Usage: " << argv[0] << " file.stl" << std::endl;
     return 1;
   }
+  
+  // TODO remove the algorithm from main() and provide interface using 3 stl structs (in, out, out)
+  
   stl_file stl_in;
   stl_open(&stl_in, argv[1]);
   stl_exit_on_error(&stl_in);
@@ -304,6 +327,7 @@ int main(int argc, char **argv) {
   std::set<stl_vertex_pair> border;
   std::deque<stl_facet> upper, lower;
   
+  // separate all facets
   for (int i = 0; i < stl_in.stats.number_of_facets; i++)
     separate(stl_in.facet_start[i], plane, upper, lower, border);
   
@@ -311,6 +335,8 @@ int main(int argc, char **argv) {
   
   std::deque<stl_vertex_pair> border2d;
   
+  // transform the border points coordinates to 2D
+  // get a tolerance for further comparison
   stl_vertex origin = (*border.begin()).x;
   float tolerance;
   for (std::set<stl_vertex_pair>::iterator i = border.begin(); i != border.end(); i++) {
@@ -323,8 +349,9 @@ int main(int argc, char **argv) {
       tolerance = STL_MIN(tolerance,ABS(x.x-y.x)+ABS(x.y-y.y));
     }
   }
-  tolerance /= 4;
+  tolerance /= 4; // TODO this needs some clarification or even replacing
   
+  // sort the edges to make a polygon
   std::deque<stl_vertex> polyline;
   stl_vertex_pair pair = border2d.front();
   border2d.pop_front();
@@ -350,22 +377,29 @@ int main(int argc, char **argv) {
     }
     if (!found) {
       break;
+      // TODO there might still be some edges left, create multiple polygons
+      // TODO (hard) also recognize holes
     }
   }
   
+  // poly2tri doesn't like this
+  // the condition should always be true when the mesh is valid and no error happened
   if (is_same(polyline.back(), polyline.front(), tolerance)) {
     polyline.pop_back();
   }
   
+  // TODO use p2t::Points right away from to_2D
   std::vector<p2t::Point*> polygon;
   for (std::deque<stl_vertex>::iterator i = polyline.begin(); i != polyline.end(); i++) {
     polygon.push_back(new p2t::Point((*i).x,(*i).y));
   }
   
+  // triangulate
   p2t::CDT cdt = p2t::CDT(polygon);
   cdt.Triangulate();
   std::vector<p2t::Triangle*> triangles = cdt.GetTriangles();
   
+  // for each triangle, create facet
   for (std::vector<p2t::Triangle*>::iterator i = triangles.begin(); i != triangles.end(); i++) {
     stl_vertex vertex;
     stl_facet facet;
@@ -378,14 +412,19 @@ int main(int argc, char **argv) {
       facet.vertex[j].y = vertex.y;
       facet.vertex[j].z = vertex.z;
     }
+    // normal goes out of the object, for lower part, it is identical to plane normal
     facet.normal.x = plane.x;
     facet.normal.y = plane.y;
     facet.normal.z = plane.z;
     lower.push_back(facet);
     
+    // for the upper part, we need to invert the normal...
     facet.normal.x = -plane.x;
     facet.normal.y = -plane.y;
     facet.normal.z = -plane.z;
+    // ...and reverse the order of the vertices
+    // TODO check if the order of vertices from poly2tri in fact depends on orientation of the first used edge
+    // .. and the order might be reversed anyway
     vertex = facet.vertex[1];
     facet.vertex[1] = facet.vertex[2];
     facet.vertex[2] = vertex;
